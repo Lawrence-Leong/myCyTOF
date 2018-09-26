@@ -8,7 +8,7 @@ plot_scpca_samp <- function(data, N) {
   samp <- sample(1:nrow(data), N, replace = FALSE)
 
   # Peform the PCA on the subsampled data
-  pca <- prcomp(data[samp, 3:ncol(data)], scale. = TRUE)$x
+  pca <- prcomp(data[samp, 3:ncol(data)])$x
 
   # Re-annotate the data
   pca_plot <- cbind(data[samp,1:2], pca)

@@ -84,9 +84,11 @@ F_hist <- function(F_stats){
   plot <- ggplot(as.tibble(as.vector(F_stats)), aes(value)) +
     geom_histogram(colour = "black", fill = "skyblue", binwidth = 0.25) +
     geom_vline(xintercept = median(as.vector(F_stats), na.rm = TRUE), col = "red") +
-    labs(y = "Count", x = "F-stats") + 
+    labs(y = "Count", x = "F-stats") +
     annotate(geom="text", x=Inf, y=Inf, label=as.character(median(as.vector(F_stats), na.rm = TRUE)),
-             vjust = 2, hjust = 2) + 
+             vjust = 2, hjust = 2) +
+    annotate(geom="text", x=Inf, y=Inf, label=as.character(mean(as.vector(F_stats), na.rm = TRUE)),
+             vjust = 4, hjust = 2) +
     theme_bw()
   plot
 }

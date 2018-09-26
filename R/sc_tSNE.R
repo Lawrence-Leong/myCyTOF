@@ -3,7 +3,7 @@
 # Take in data subsamples and converts it into annotated tsne form
 compute_tsne <- function(data, N){
   samp_data <- sample_n(data, N, replace = FALSE)
-  tsne <- cytof_dimReduction(samp_data[3:ncol(samp_data)], method = "tsne", tsneSeed = 42)
+  tsne <- cytofkit::cytof_dimReduction(samp_data[3:ncol(samp_data)], method = "tsne", tsneSeed = 42)
   colnames(tsne) <- c("tSNE1", "tSNE2")
   tsne_data <- data.frame(samp_data[,1:2], tsne)
   tsne_data

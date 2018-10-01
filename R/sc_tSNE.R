@@ -31,13 +31,15 @@ plot_tsne_marker <- function(data, tsne_data){
   for (i in 3:ncol(data)){
     col_marker <- data[,i]
     marker_name <- colnames(data)[i]
-    plot_data <- data.frame(tsne_data, col_marker)
+    plot_data <- data.frame(tsne_data, col_marker, row.names = NULL)
+
     plot <- ggplot(plot_data, aes(tSNE1, tSNE2, col = col_marker)) +
       geom_point() +
       scale_colour_gradientn(colours =
           colorRampPalette(rev(brewer.pal(n = 11, name = "Spectral")))(50)) +
       labs(x = "tSNE1", y = "tSNE2", color = marker_name) +
       theme_bw()
+
     plots[[i-2]] <- plot
   }
   plots

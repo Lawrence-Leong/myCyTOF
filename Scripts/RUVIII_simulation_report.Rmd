@@ -18,14 +18,27 @@ library(RColorBrewer)
 Simulate the data
 
 ```{r}
-ncells <- 20000
-nmarkers <- 20
-beta_size <- 3
-sigma_alpha <- 2
-sigma_epsilon <- 1
+ncells <- 20000 # Total number of cells
+nmarkers <- 20 # Number of markers
+beta_size <- 5 # Sample differnce
+sigma_alpha <- 2 # Size of batch effects
+sigma_epsilon <- 4 # Size of random noise
+sigma_biology <- 20 # Size of inherent biology
+nbioclust <- 5
 
-# Biology design matrix
+# Sample (treatment/control) design matrix
 X <- matrix(c(rep(0,ncells/2), rep(1,ncells/2)), ncells, 1)
+
+# Inherent biology
+Z <- ruv::replicate.matrix(rep(1:nbioclust, each = ncells/nbioclust))
+# Coeficeints of biology
+# Select certain coefficeints and make them non-zero
+# gamma_size <- 5
+# gamma <- matrix(0, 1, nmarkers)
+# gamma[c(1,3,5)] <- rep(gamma_size, 3)
+
+# Randomly sample all coeffcients from N(0, sigma_biology) 
+gamma <- matrix(rnorm(nmarkers*nbioclust, sd = sigma_biology), nbioclust, nmarkers)
 
 # Global mean (similair overall shift to CyTOF data)
 mu <- matrix(10, ncells, nmarkers)
@@ -45,7 +58,7 @@ alpha <- matrix(rnorm(nmarkers, sd = sigma_alpha), 1, nmarkers)
 epsilon <- matrix(rnorm(ncells*nmarkers, sd = sigma_epsilon), ncells, nmarkers)
 
 # RUVIII model
-Y <-  mu + X %*% beta + W %*% alpha + epsilon
+Y <-  mu + X %*% beta + Z %*% gamma + W %*% alpha + epsilon
 ```
 
 Annotate the simulation data
@@ -60,6 +73,8 @@ cluster_id <- rep(NA, ncells) # Add nonsense to make correct format
 data <- data.frame(sample = sample_id, cluster = cluster_id, Y)
 
 data$cluster <- cluster_FlowSOM(data, 4)
+
+bio_ind <- as.matrix(rep(1:nbioclust, each = ncells/nbioclust), nrow = ncells, ncol = 1)
 ```
 
 Plot markers
@@ -86,9 +101,27 @@ plots <- list(qplot(1:ncells, pca$x[,1]) + labs(x = "Index", y = "PCA1") + theme
 ggarrange(plotlist = plots)
 ```
 
+Coloured by sample
+
 ```{r}
 ggarrange(plotlist = plot_scpca_samp(data, 2000), nrow = 1, ncol = 3, common.legend = TRUE)
 ```
+
+Coloured by batch
+
+```{r}
+ggarrange(plotlist = plot_scpca_ann(data, 2000, annotation = W, ann_label = "Batch"), 
+          nrow = 1, ncol = 3, common.legend = TRUE)
+```
+
+Colour by biology
+
+```{r}
+ggarrange(plotlist = plot_scpca_ann(data, 2000, annotation = bio_ind, ann_label = "Biology"), 
+          nrow = 1, ncol = 3, common.legend = TRUE)
+```
+
+Colour by cluster
 
 ```{r}
 ggarrange(plotlist = plot_scpca_clus(data, 2000), nrow = 1, ncol = 3, common.legend = TRUE)
@@ -97,9 +130,14 @@ ggarrange(plotlist = plot_scpca_clus(data, 2000), nrow = 1, ncol = 3, common.leg
 tSNE plots
 
 ```{r}
-tsne_data <- compute_tsne(data, 1000)
+samp <- sample(1:nrow(data), 1000)
+tsne_data <- compute_tsne(data, sample = samp)
+
 plot_tsne_sample(tsne_data)
 plot_tsne_cluster(tsne_data)
+
+plot_tsne_ann(tsne_data, W[samp, ], ann_label = "Batch")
+plot_tsne_ann(tsne_data, bio_ind[samp, ], ann_label = "Biology")
 ```
 
 ```{r}
@@ -112,12 +150,27 @@ Normalise the data
 nrep_groups <- 2
 rand <- sample(c(0,1), ncells, replace = TRUE)
 
-# random pseudo replicates
-#M <- cbind(rand, !rand)
-# exactly wrong psuedo replicates
-M <- cbind(W, !W)
-# perfect psedo replicates
-#M <- cbind(X, !X)
+# Pseudo replciates can either be "rand", "right" or "wrong"
+pseudo_rep <- "right"
+
+if(pseudo_rep == "rand"){
+  # random pseudo replicates
+  M <- cbind(rand, !rand)
+} else if (pseudo_rep == "right"){
+  # perfect psedo replicates
+  M <- cbind(X, !X)
+} else if (pseudo_rep == "wrong"){
+  # exactly wrong psuedo replicates
+  M <- cbind(W, !W)
+}
+
+# Create replciates which respect the biology
+#M <- (cbind(as.numeric(X & Z), (X & !Z), (!X & Z), (!X & !Z)))
+M <- Z 
+
+# Create replicates based on clustering
+# i.e. define one cluster to be all psedo-replicates
+# M <- cbind(as.numeric(data$cluster == 4), !(data$cluster == 4))
 
 # Check ruv documentation condition satisfied
 any(rowSums(M) == 0)
@@ -174,11 +227,35 @@ PCA plots
 ggarrange(plotlist = plot_scpca_samp(norm_data, 2000), nrow = 1, ncol = 3, common.legend = TRUE)
 ```
 
+Coloured by batch
+
+```{r}
+ggarrange(plotlist = plot_scpca_ann(norm_data, 2000, annotation = W, ann_label = "Batch"), 
+          nrow = 1, ncol = 3, common.legend = TRUE)
+```
+
+Colour by biology
+
+```{r}
+ggarrange(plotlist = plot_scpca_ann(norm_data, 2000, annotation = bio_ind , ann_label = "Biology"), nrow = 1, ncol = 3, common.legend = TRUE)
+```
+
+Colour by cluster
+
+```{r}
+ggarrange(plotlist = plot_scpca_clus(norm_data, 2000), nrow = 1, ncol = 3, common.legend = TRUE)
+```
+
 tSNE plots
 
 ```{r}
-tsne_data <- compute_tsne(norm_data, 1000)
+samp <- sample(1:nrow(data), 1000)
+tsne_data <- compute_tsne(norm_data, samp)
+
 plot_tsne_sample(tsne_data)
 plot_tsne_cluster(tsne_data)
+
+plot_tsne_ann(tsne_data, W[samp, ], ann_label = "Batch")
+plot_tsne_ann(tsne_data, bio_ind[samp, ], ann_label = "Biology")
 ```
 

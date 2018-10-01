@@ -1,0 +1,202 @@
+Beta size: 3
+Sigma alpha size: 2
+Random noise size: 1
+Sigma biology size: 4
+
++ correct negative controls, and perfect sample replicates
+
+-Batch becomes PCA one and splits on tSNE. Biology is al mixes up. Sample secondary.
+
+Beta size: 3
+Sigma alpha size: 4
+Random noise size: 1
+Sigma biology size: 2
+
++ correct negative controls, and perfect sample replicates
+
+-Biology is PCA1 and splits tSNE but everything is split up into 4 groups. Batch/Sample together split -the 2 biology clusters up between them.
+
+Beta size: 3
+Sigma alpha size: 3
+Random noise size: 1
+Sigma biology size: 2
+
++ correct negative controls, and perfect sample replicates
+
+Before PCA1 perfect mix of batch and biology. After: weird three separation
+into 3 groups with batch and biology oddly correlated.
+
+
+Beta size: 3
+Sigma alpha size: 3
+Random noise size: 1
+Sigma biology size: 2
+
++ correct negative controls, and perfect sample replicates
+
+Before PCA1 split between batch and biology. After batch PC, Biology > sample
+
+Beta size: 4
+Sigma alpha size: 8
+Random noise size: 1
+Sigma biology size: 2
+
++ correct negative controls, and perfect sample replicates
+
+Works beautifully, all batch effect eliminated. Biology and sample have equal effect after normalisation. 
+
+Beta size: 4
+Sigma alpha size: 8
+Random noise size: 1
+Sigma biology size: 2
+
++ correct negative controls, and perfect bio + sample replicates
+
+Attempt 1: Utter nonsense - debugging… - whoops had used X when meant X so got similar behaviour to that using W seen previously 
+
+Interestingly results seem identical to previous test despite the ‘better’ pseudo-replicates 
+
+Beta size: 4
+Sigma alpha size: 4
+Random noise size: 1
+Sigma biology size: 4
+
++ correct negative controls, and perfect bio + sample replicates
+
+This should be a harder test as the batch will not be so prominent (i.e. PC1). Biology is PC1 Everything works very well - batch eliminated. (Good sign - a key test is whether can eliminate something that isn’t PC1)
+
+Beta size: 4
+Sigma alpha size: 4
+Random noise size: 1
+Sigma biology size: 4
+
++ correct negative controls, and perfect sample replicates
+
+Same as above but not exploiting the biology is the replicates. This should preferably not work. Biology is PC1 before hand. After we get splitting into 4 and batch still being a strong effect. Yay!
+
+Questions: What is the most difficult situation we can still correct for? How badly can we mess up the ideal pseudo-replicates. 
+
+Key Parameters: 4,4,1,4 to get difference between replicates. 
+
+Beta size: 3
+Sigma alpha size: 2
+Random noise size: 1
+Sigma biology size: 4
+
++ correct negative controls, and perfect sample + bio replicates
+
+All ready tried this parameter combination (with sample reps.) and found RUV ineffective. (Repeating to confirm - yes previous observation correct). With better pseudo-replicates: Biology is biggest separator - batch totally gone! Nice secondary split on sample!
+
+Conclusion: Well defined pseudo replicates which are sensitive to *batch and biology* are critical to normalising!
+
+Now need to test the effectiveness of defining a one cluster as pseudo-replicates. 
+
+Beta size: 3
+Sigma alpha size: 2
+Random noise size: 1
+Sigma biology size: 4
+
++ correct negative controls, and cluster replicates
+
+Issue: In CyTOF data clusters contain data from different samples - this does not occur in the simulation. Question: Can we make the simulation look more like CyTOF data? We would need to increase the variance of the biology to make the batch and sample fit inside it. First idea; bump up the variance of the epsilon term.
+
+Idea: Write a custom parser (Python?) for documents like this!
+
+Beta size: 3
+Sigma alpha size: 2
+Random noise size: 4
+Sigma biology size: 4
+
++ correct negative controls, and cluster replicates
+
+Hey that works - Biology separates it into two clusters - batch is visible within the two clusters and sample is distributed evenly. Re-running with two clusters to ensure I can choose a meaningful cluster. 
+
+Okay that make the FlowSOM clustering algorithm unhappy. Let’s see if the clustering is consistent - if so just pick an appropriate cluster. Before cluster 4 was appropriate. 
+
+Note: sigma_epsilon equals 4 gives simulation results that look *a lot* like CyTOF datas. 
+
+Clustering is consistent - so use cluster 4. 
+
+Beta size: 3
+Sigma alpha size: 2
+Random noise size: 4
+Sigma biology size: 4
+
++ correct negative controls, and cluster replicates (4)
+
+Note batch effect is visible but not hugely pronounced before hand! Batch is perfectly corrected but in the process sample is also eliminated - the effect is removed. Hmmmm… 
+
+Need to rerun perfect replicates scenario with new epsilon.
+
+Clustering is consistent - so use cluster 4. 
+
+Beta size: 3
+Sigma alpha size: 2
+Random noise size: 4
+Sigma biology size: 4
+
++ correct negative controls, and  perfect sample + bio replicates (4)
+
+We want to see if this is substantially better than the cluster idea - this would suggest that we need to invest more time into fining better pseudo-replicates
+
+Surprisingly this is *very* similiar to the last test we don’t see any substantial improvement…
+
+Question: Why are the perfect replicates not a substantial improvement and why do they fail to work in this case? 
+
+Maybe we can’t correct when the randomness is high or biology is too big?
+
+Whoops in both test there was substantial mix up of the batch in both of the two distinct biology clusters! So we were not really making it worse in either case? 
+
+Summary: Having different biological replicates in different biologial groups is critical to the success of RUVIII.3,2,4,4 parameters gives good data that is very like CyTOF. Using a cluster as a replicate seems to work well - as well as perfect replicates in some cases.
+
+Question: Does the cluster idea still work if there is more than one cluster? Does it work if batch is correlated with biology? 
+
+Directions: Need to amend the simulation to allow for a higher number of clusters.
+
+Coding, coding, coding….
+
+Is is sensible to have different biological clusters have different variances? Yes but I think too hard. 
+
+Have made some adjustments to code
+
+Fixing broken server connection…
+
+Why are we not creating 6 different replicates for each cluster? - Because we know they should all be the same silly! -If there was different biology would we do that? I’m not sure. scMerge (still need to read the paper in detail) does not! I think should focus on splitting in terms of known biology but could ask Marie about this. Best I think to let the biology emerge. 
+
+Beta size: 5
+Sigma alpha size: 2
+Random noise size: ?
+Sigma biology size: 4
+Number of biological clusters: 5
+
+Strangely this show very little biological heterogeneity - everything is dominated by batch and sample effects. 
+
+Beta size: 5
+Sigma alpha size: 2
+Random noise size: 5
+Sigma biology size: 4
+Number of biological clusters: 5
+
+Biology is still dominated! I suspect a bug or I’m not grokking some of the maths… 
+
+p.s. is the code backward compatible? 
+
+TODO: get the 5 bio. cluster simulation to the point where it is producing CyTOF like data
+
+Tried with sigma_biology = 20 and get the same result - definitely a bug
+
+Could the gamma be cancelling itself out in some weird way? Or is the labelling wrong? Yes labelling incorrect!
+
+Some of the sample are all one biology, some the other and some mixed
+
+Beta size: 5
+Sigma alpha size: 2
+Random noise size: 5
+Sigma biology size: 4
+Number of biological clusters: 5
+
++ correct negative controls, and  perfect bio replicates
+
+This gets rid of batch entirely!
+
+TODO: make simulation more CyTOF like and then decrees number/quality of sped replicates, particularly trying clusters as replicates.

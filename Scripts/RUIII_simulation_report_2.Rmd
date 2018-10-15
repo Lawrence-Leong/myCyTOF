@@ -7,6 +7,16 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+### Preamble
+
+This script simulates mass cytometry data and tests the effects of RUVIII normalisation on this data.
+Broadly the script simulates data from the model: 
+
+$$ Y = X\beta + W\alpha + \epsilon $$
+Which is described in detail in the papers about RUV normalistion. Adding to this model we also simulate mixture normal noise for some of the parameters which causes clustering in the high dimensional space.
+
+We then attempt to remove batch effects useing RUVIII with pseduo-replicates. For this technique we must select which pseduo replciates we are using and which markers we use as negative controls. 
+
 Libraries
 
 ```{r, message = FALSE, warning = FALSE}

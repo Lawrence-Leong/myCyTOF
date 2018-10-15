@@ -13,6 +13,9 @@ library(ggpubr)
 devtools::load_all()
 set.seed(44)
 library(RColorBrewer)
+library(distr)
+# Stop the warning
+distroptions(WarningArith = FALSE)
 ```
 
 Simulate the data
@@ -21,27 +24,17 @@ Simulate the data
 ncells <- 20000 # Total number of cells
 nmarkers <- 20 # Number of markers
 beta_size <- 5 # Sample differnce
-sigma_alpha <- 2 # Size of batch effects
-sigma_epsilon <- 4 # Size of random noise
-sigma_biology <- 20 # Size of inherent biology
-nbioclust <- 5
-
-# Sample (treatment/control) design matrix
-X <- matrix(c(rep(0,ncells/2), rep(1,ncells/2)), ncells, 1)
-
-# Inherent biology
-Z <- ruv::replicate.matrix(rep(1:nbioclust, each = ncells/nbioclust))
-# Coeficeints of biology
-# Select certain coefficeints and make them non-zero
-# gamma_size <- 5
-# gamma <- matrix(0, 1, nmarkers)
-# gamma[c(1,3,5)] <- rep(gamma_size, 3)
-
-# Randomly sample all coeffcients from N(0, sigma_biology) 
-gamma <- matrix(rnorm(nmarkers*nbioclust, sd = sigma_biology), nbioclust, nmarkers)
+sigma_alpha <- 5 # Size of batch effects
+sigma_epsilon <- 1 # Size of random noise
+bio_param_locs <- c(1,3,5)
+mixture_size <- 10
+#nbioclust <- 4
 
 # Global mean (similair overall shift to CyTOF data)
 mu <- matrix(10, ncells, nmarkers)
+
+# Sample (treatment/control) design matrix
+X <- matrix(c(rep(0,ncells/2), rep(1,ncells/2)), ncells, 1)
 
 # Coefficients of interest
 beta <- matrix(0, 1, nmarkers)
@@ -58,7 +51,39 @@ alpha <- matrix(rnorm(nmarkers, sd = sigma_alpha), 1, nmarkers)
 epsilon <- matrix(rnorm(ncells*nmarkers, sd = sigma_epsilon), ncells, nmarkers)
 
 # RUVIII model
-Y <-  mu + X %*% beta + Z %*% gamma + W %*% alpha + epsilon
+Y <-  mu + X %*% beta + W %*% alpha 
+
+multnorm <- UnivarMixingDistribution(Norm(-mixture_size, 1), Norm(mixture_size, 1), mixCoeff = c(1/2, 1/2))
+my_rmultnorm <- r(multnorm)
+
+Z <- matrix(0, ncol = nmarkers, nrow = ncells)
+
+for(i in 1:ncol(Y)){
+  if(i %in% bio_param_locs){
+    bio <- my_rmultnorm(ncells)
+    Y[,i] <- Y[,i] + bio
+    Z[,i] <- ifelse(bio > 0, 1, 0)
+  } else {
+    # Do nothing
+  }
+}
+
+Y <- Y + epsilon
+```
+
+2D plots of cells
+
+```{r}
+samp <- sample(1:20000, 1000)
+plot_data <- tibble(x = Y[samp,3], 
+               y = Y[samp,1],
+               sample = factor(as.vector(X[samp, ])),
+               batch = factor(as.vector(W[samp, ])),
+               bio = interaction(factor(Z[samp,3]), factor(Z[samp,1])))
+
+ggplot(data, aes(x, y, col = sample)) + 
+  geom_point()
+
 ```
 
 Annotate the simulation data
@@ -72,9 +97,21 @@ cluster_id <- rep(NA, ncells) # Add nonsense to make correct format
 
 data <- data.frame(sample = sample_id, cluster = cluster_id, Y)
 
-data$cluster <- cluster_FlowSOM(data, 4)
+data$cluster <- cluster_FlowSOM(data, 5)
 
-bio_ind <- as.matrix(rep(1:nbioclust, each = ncells/nbioclust), nrow = ncells, ncol = 1)
+# Inherent biology
+# Note: the construction ensures that Z and X are uncorrelated.
+Z <- matrix(0, ncol = nbioclust, nrow = ncells)
+for(i in 1:nbioclust){
+  free <- which(rowSums(Z) != 1)
+  Z[sample(free, ncells/nbioclust), i] <- 1
+}
+
+bio_ind <- numeric(nrow(Z))
+for(i in 1:ncol(Z)){
+  bio_ind[which(Z[ ,i] == 1)] <- i
+}
+bio_ind <- as.matrix(bio_ind, nrow = ncells, ncol = 1)
 ```
 
 Plot markers
@@ -117,8 +154,8 @@ ggarrange(plotlist = plot_scpca_ann(data, 2000, annotation = W, ann_label = "Bat
 Colour by biology
 
 ```{r}
-ggarrange(plotlist = plot_scpca_ann(data, 2000, annotation = bio_ind, ann_label = "Biology"), 
-          nrow = 1, ncol = 3, common.legend = TRUE)
+#ggarrange(plotlist = plot_scpca_ann(data, 2000, annotation = bio_ind, ann_label = "Biology"), 
+#          nrow = 1, ncol = 3, common.legend = TRUE)
 ```
 
 Colour by cluster
@@ -132,12 +169,28 @@ tSNE plots
 ```{r}
 samp <- sample(1:nrow(data), 1000)
 tsne_data <- compute_tsne(data, sample = samp)
+```
 
+tSNE coloured by sample
+
+```{r}
 plot_tsne_sample(tsne_data)
-plot_tsne_cluster(tsne_data)
+```
 
+tSNE coloured by batch
+
+```{r}
 plot_tsne_ann(tsne_data, W[samp, ], ann_label = "Batch")
+```
+
+tSNE coloured by biology
+```{r}
 plot_tsne_ann(tsne_data, bio_ind[samp, ], ann_label = "Biology")
+```
+
+tSNE coloured by cluster
+```{r}
+plot_tsne_cluster(tsne_data)
 ```
 
 ```{r}
@@ -164,13 +217,12 @@ if(pseudo_rep == "rand"){
   M <- cbind(W, !W)
 }
 
-# Create replciates which respect the biology
+# Create replciates which respect the biology (perfect)
 #M <- (cbind(as.numeric(X & Z), (X & !Z), (!X & Z), (!X & !Z)))
-M <- Z 
 
 # Create replicates based on clustering
-# i.e. define one cluster to be all psedo-replicates
-# M <- cbind(as.numeric(data$cluster == 4), !(data$cluster == 4))
+#i.e. define one cluster to be all psedo-replicates
+#M <- cbind(as.numeric(data$cluster == 4), !(data$cluster == 4))
 
 # Check ruv documentation condition satisfied
 any(rowSums(M) == 0)
@@ -250,12 +302,27 @@ tSNE plots
 
 ```{r}
 samp <- sample(1:nrow(data), 1000)
-tsne_data <- compute_tsne(norm_data, samp)
+tsne_data <- compute_tsne(norm_data, sample = samp)
+```
 
+tSNE coloured by sample
+
+```{r}
 plot_tsne_sample(tsne_data)
-plot_tsne_cluster(tsne_data)
+```
 
+tSNE coloured by batch
+
+```{r}
 plot_tsne_ann(tsne_data, W[samp, ], ann_label = "Batch")
+```
+
+tSNE coloured by biology
+```{r}
 plot_tsne_ann(tsne_data, bio_ind[samp, ], ann_label = "Biology")
 ```
 
+tSNE coloured by cluster
+```{r}
+plot_tsne_cluster(tsne_data)
+```

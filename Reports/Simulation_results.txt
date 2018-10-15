@@ -199,4 +199,126 @@ Number of biological clusters: 5
 
 This gets rid of batch entirely!
 
-TODO: make simulation more CyTOF like and then decrees number/quality of sped replicates, particularly trying clusters as replicates.
+TODO: make simulation more CyTOF like and then decrees number/quality of pseudo replicates, particularly trying clusters as replicates.
+
+Friday
+
+Beta size: 3
+Sigma alpha size: 2
+Random noise size: 5
+Sigma biology size: 20
+Number of biological clusters: 5
+
++ correct negative controls, and  perfect bio replicates
+
+Trying to make both batch and sample dominated by biology
+
+Sample still appears the same  - dominating batch
+
+Beta size: 2
+Sigma alpha size: 2
+Random noise size: 5
+Sigma biology size: 20
+Number of biological clusters: 5
+
++ correct negative controls, and  perfect bio replicates
+
+No change at all - bug?
+
+Beta size: 2
+Sigma alpha size: 2
+Random noise size: 5
+Sigma biology size: 10
+Number of biological clusters: 5
+
++ correct negative controls, and  perfect bio replicates
+
+Maybe biology just too big (hold over from debugging) thats better
+
+Beta size: 1
+Sigma alpha size: 2
+Random noise size: 4
+Sigma biology size: 8
+Number of biological clusters: 5
+
++ correct negative controls, and  perfect bio replicates
+
+Hm no improvement - perhaps a bug?
+
+Beta size: 0
+Sigma alpha size: 2
+Random noise size: 4
+Sigma biology size: 8
+Number of biological clusters: 5
+
++ correct negative controls, and  perfect bio replicates
+
+If this shows difference strong evidence of bug - still same difference - why??
+
+Rerun-printing beta’s okay so the way I was encoding biology was correlated with batch. Fixed by creating Z in a better way
+
+Rerun to check fix - should have no sample effect - no biology - I’ve stuffed but the labelling! Fixed. The batch effect isn’t very strong - was that also a bug - no shows put on the tsne.
+
+Okay now need to fiddle with beta and see if we can get some effect
+
+Supervisor: What sort of batch effect are we trying to simulate?
+
+Test changes to tSNE plots - nice!
+
+Beta size: 2
+Sigma alpha size: 2
+Random noise size: 4
+Sigma biology size: 8
+Number of biological clusters: 5
+
++ correct negative controls, and  perfect bio replicates
+
+Make beta on par with batch - Hmmm no effect
+
+Beta size: 10
+Sigma alpha size: 2
+Random noise size: 4
+Sigma biology size: 8
+Number of biological clusters: 5
+
++ correct negative controls, and perfect bio replicates
+
+Ramp up the beta’s (Could change the number of beta’s) The tSNE’s look very convincing though sample is slightly bigger than biology - but RUV makes a total mess! Here we have set M to be all of Z - that’s been working up to now! Why is one of the sPCa plots different - should all be the same! This is a very interesting parameter combination - should show sup. I am surprised this doesn’t work at all well. I need to understand the mathematics better. Particularly the projecting away the replicates bit. The difference in PCA’s was due to one being scaled and the other not. 
+
+It’s very difficult to juggle the five (or more clusters) on a PCA plot - tSNE becomes a lot better
+
+Beta size: 10
+Sigma alpha size: 2
+Random noise size: 4
+Sigma biology size: 8
+Number of biological clusters: 5
+
++ correct negative controls, and 1 cluster replicates (4)
+
+Weirdly that get rid of a cluster!!
+
+Beta size: 10
+Sigma alpha size: 8
+Random noise size: 4
+Sigma biology size: 8
+Number of biological clusters: 4
+
++ correct negative controls, and perfect bio replicates
+
+Want to try to make batch dominate force *inside* cluster - that value of alpha may be to much - could try to turn down beta instead. - Whoops - too much! Biology is split. 
+
+Beta size: 8
+Sigma alpha size: 3
+Random noise size: 4
+Sigma biology size: 8
+Number of biological clusters: 4
+
++ correct negative controls, and perfect bio replicates
+
+This put’s batch and biology on an equal footing.
+
+Question: Is this the sort of sample effect that we want to simulate? 
+
+Not elongated as much but still a bit stretched - no real sense that we are actually correcting the batch effect. 
+
+Need to create a situation where batch > biology within the clusters to give RUVIII the greatest chance of working. 

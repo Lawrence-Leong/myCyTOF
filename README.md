@@ -20,4 +20,4 @@ Rscript generate_sim_report.R
 ```
 ## Technical note
 
-The R directory contains all the helper function used in *RUVIII_data_report.Rmd*. These functions are loaded using the `devtools::load_all()` which I admit is a bit of a hack. This is why I label this repo a pseduo-pacakge
+The R directory contains all the helper function used in *RUVIII_data_report.Rmd*. These functions are loaded using the `devtools::load_all()` which I admit is a bit of a hack. This is why I label this repo a pseduo-package - it was created with `devtools` which is why it includes all of the package paraphenelia. 

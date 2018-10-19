@@ -1,0 +1,96 @@
+---
+title: "Before/After Heatmaps"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo = FALSE, message=FALSE}
+# File to produce before and after heatmaps for Terry
+library(tidyverse)
+setwd("/home/users/allstaff/pullin.j/CyTOFScripts/Data")
+# NB: the first file must be the raw one
+files <- c("raw_data.rds", "norm_data.rds")
+data_list <- map(files, ~readRDS(.))
+
+n_raw_files <- 1
+n_data <- length(data_list)
+
+samples <- c("1B1", "2B1", "3B1", "4B1", "5B1", "6B1")
+n_clust <- max(data_list[[1]]$cluster) # Get the number of clusters 
+
+data_list[[1]] <- data_list[[1]] %>%
+  filter(sample %in% samples) %>% 
+  mutate(ind = 1:nrow(.)) %>% 
+  group_by(sample) %>% 
+  sample_n(10000) %>% 
+  ungroup() %>% 
+  as.data.frame()
+
+index <- as.vector(as.matrix(select(data_list[[1]], ind)))
+data_list[[1]] <- select(data_list[[1]], -ind)
+
+if(n_raw_files != n_data){
+  # Downsample other files
+  for(i in (n_raw_files+1):n_data){
+    data_list[[i]] <- data_list[[i]] %>%
+      filter(sample %in% samples) %>% 
+      slice(index) %>% 
+      as.data.frame()
+  }
+}
+
+library(ruv)
+library(rsvd)
+library(FlowSOM)
+
+norm_data <- CyTOFFunctions::normalise_data(data_list[[1]], c(13), 1, num_clusters = n_clust)
+data_list[[length(data_list) + 1]] <- norm_data
+n_data <- length(data_list)
+
+
+plot_median_exprs_pheatmap <- function(data){
+  data <- select(data, -sample)
+  freqs <- paste0(as.character(round(table(data$cluster)/nrow(data),4) * 100), "%")
+
+  plot_data <- data %>%
+    group_by(cluster) %>%
+    summarize_all(median)
+  
+  
+  plot_data <- as.matrix(plot_data[,-1])
+  
+  pheatmap::pheatmap(plot_data,
+                     cluster_cols = FALSE, 
+                     display_numbers = TRUE,
+                     labels_row= freqs)
+}
+```
+
+## Raw Data 
+
+```{r}
+plot_median_exprs_pheatmap(data_list[[1]])
+```
+
+## Finck Normalised Data
+
+```{r}
+plot_median_exprs_pheatmap(data_list[[2]])
+```
+
+## RUVIII Normalised Data
+
+```{r}
+plot_median_exprs_pheatmap(data_list[[3]])
+```
+
+Note: 
+
+RUVIII parameters: The cells in cluster 13 (thought to be biological) are all taken to be psuedo-replicates. All markers are 
+used as negative controls. k is taken to be 1
+
+The heatmaps include 60,000 cells
+

@@ -1,0 +1,338 @@
+---
+title: "RUVIII Simulation Report 2.0"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Preamble
+
+This script simulates mass cytometry data and tests the effects of RUVIII normalisation on this data.
+Broadly the script simulates data from the model: 
+
+$$ Y = X\beta + W\alpha + \epsilon $$
+Which is described in detail in the papers about RUV normalistion. Adding to this model we also simulate mixture normal noise for some of the parameters which causes clustering in the high dimensional space.
+
+We then attempt to remove batch effects useing RUVIII with pseduo-replicates. For this technique we must select which pseduo replciates we are using and which markers we use as negative controls. 
+
+Libraries
+
+```{r, message = FALSE, warning = FALSE}
+library(tidyverse)
+library(ggpubr)
+devtools::load_all()
+set.seed(44)
+library(RColorBrewer)
+library(distr)
+# Stop the warning
+distroptions(WarningArith = FALSE)
+```
+
+Data Simulation
+
+```{r}
+# PARAMETERS
+ncells <- 20000 # Total number of cells
+nmarkers <- 20 # Number of markers
+beta_size <- 5 # Sample differnce
+sigma_alpha <- 10 # Size of batch effects
+sigma_epsilon <- 4 # Size of random noise
+bio_param_locs <- c(1, 3, 5, 7)
+mixture_size <- 20
+nbioclust <- 2^(length(bio_param_locs))
+
+# Global mean (similair overall shift to CyTOF data)
+mu <- matrix(10, ncells, nmarkers)
+
+# Sample (treatment/control) design matrix
+X <- matrix(c(rep(0,ncells/2), rep(1,ncells/2)), ncells, 1)
+
+# Coefficients of interest
+beta <- matrix(0, 1, nmarkers)
+beta[bio_param_locs] <- rep(beta_size, length(bio_param_locs))
+
+# Random error
+epsilon <- matrix(rnorm(ncells * nmarkers, sd = sigma_epsilon), ncells, nmarkers)
+
+# RUVIII model
+Y <-  mu + X %*% beta
+
+# PARAMETER
+# Mixing coefficients
+mix_coeff <- c(1/2, 1/2)
+multnorm <- UnivarMixingDistribution(Norm(-mixture_size, 1), Norm(mixture_size, 1), 
+                                     mixCoeff = mix_coeff)
+my_rmultnorm <- r(multnorm)
+
+Z <- matrix(0, ncol = nmarkers, nrow = ncells)
+
+for(i in 1:ncol(Y)){
+  if(i %in% bio_param_locs){
+    bio <- my_rmultnorm(ncells)
+    Y[,i] <- Y[,i] + bio
+    Z[,i] <- ifelse(bio > 0, 1, 0)
+  } else {
+    # Do nothing
+  }
+}
+
+bio_factors <- lapply(bio_param_locs, function(x) factor(Z[, x]))
+
+int <- interaction(bio_factors)
+
+W_vec <- numeric(ncells)
+
+# PARAMETER
+# Proportion of cells with batch effect in a given cluster
+# NB: Must have length `nbioclust`
+#props <- c(0.3, 0.7, 0.2, 0.8)
+props <- rep(0.5, nbioclust)
+
+# PARAMETER
+# Correlation between X and W
+# Here W is constructed so that it is uncorrelated with X
+for(i in 1:length(levels(int))){
+  ind <- which(int == levels(int)[i])
+  W_vec[ind] <- rbinom(length(ind), 1, props[i])
+}
+
+# Unwanted variation design matrix
+# Note: This is UNCORRELATED with X
+W <- matrix(W_vec, ncells, 1)
+
+#W <- matrix(rbinom(ncells, 1, 0.5), ncells, 1)
+
+# Coeffcients of unwanted variation
+alpha <- matrix(rnorm(nmarkers, sd = sigma_alpha), 1, nmarkers)
+
+Y <- Y + W %*% alpha
+
+Y <- Y + epsilon
+```
+
+Plot the data
+
+```{r}
+# PARAMETER
+# Size of the subset
+N <- 1000
+samp <- sample(1:20000, N)
+
+plot_data <- tibble(x = Y[samp,3], 
+                    y = Y[samp,1],
+                    sample = factor(as.vector(X[samp, ])),
+                    batch = factor(as.vector(W[samp, ])),
+                    bio = int[samp])
+
+# PARAMETER 
+# Use PCA for dimension reduction
+PCA <- FALSE
+if(PCA){
+    pca <- prcomp(plot_data[, bio_param_locs], scale. = TRUE)
+    plot_data$x <- pca$x[,1]
+    plot_data$y <- pca$x[,2]
+}
+
+# PARAMETER 
+# Use t-SNE for dimension reduction
+# NB: tSNE only recommended if dim > 2
+TSNE <- TRUE
+if(TSNE){
+  # Code to correct bug in the cytofkit package.
+  # A passed matrix must be named...
+  tsne_data <- Y[samp, bio_param_locs]
+  colnames(tsne_data) <- as.character(1:ncol(tsne_data))
+  # Run t-SNE
+  tsne <- cytofkit::cytof_dimReduction(tsne_data, method = "tsne")
+  plot_data$x <- tsne[,1]
+  plot_data$y <- tsne[,2]
+}
+
+sample_plot <- ggplot(plot_data, aes(x, y, col = sample)) + 
+                  geom_point() + 
+                  theme_bw() + 
+                  labs(x = "", y = "", col = "Sample") + 
+                  scale_colour_manual(values=c("steelblue", "green4"))
+
+bio_plot <- ggplot(plot_data, aes(x, y, col = bio)) + 
+                geom_point() + 
+                theme_bw() + 
+                labs(x = "", y = "", col = "Biology")
+            
+batch_plot <- ggplot(plot_data, aes(x, y, col = batch)) + 
+                 geom_point() + 
+                 theme_bw() + 
+                 labs(x = "", y = "", col = "Batch") + 
+                 scale_colour_manual(values=c("red3", "royalblue3"))
+
+sample_plot
+bio_plot
+batch_plot
+```
+
+```{r}
+boxplot_data <- data.frame(Y, 
+                           sample = factor(as.vector(X)),
+                           batch = factor(as.vector(W)),
+                           bio = int)
+
+boxplot_data <- gather(boxplot_data, key = "marker", value = "intensity",
+                       X1:X20, -sample, -batch, -bio)
+
+
+sample_boxplot <- ggplot(boxplot_data, aes(marker, intensity, fill = sample)) + 
+                      geom_boxplot() + 
+                      theme_bw() + 
+                      labs(x = "", y = "", col = "Sample") + 
+                      scale_fill_manual(values=c("steelblue", "green4"))
+
+bio_boxplot <- ggplot(boxplot_data, aes(marker, intensity, fill = bio)) + 
+                  geom_boxplot() + 
+                  theme_bw() + 
+                  labs(x = "", y = "", col = "Biology") + 
+                  facet_wrap(~bio)
+
+batch_boxplot <- ggplot(boxplot_data, aes(marker, intensity, fill = batch)) + 
+                   geom_boxplot() + 
+                   theme_bw() + 
+                   labs(x = "", y = "", col = "Batch") + 
+                   scale_fill_manual(values=c("red3", "royalblue3"))
+
+sample_boxplot
+bio_boxplot
+batch_boxplot
+```
+
+
+```{r}
+# PARAMETER
+# Which what sort of pseudo-replicates we are using 
+
+# Factor which includes all of the 4 biological clusters
+bio_int <- int
+
+# Factor which includes all of the biological clusters and the sample difference
+bio_factors[[length(bio_param_locs) + 1]] <- factor(X[,1])
+bio_samp_int <- interaction(bio_factors)
+
+# Use the ruv package to convert the factor to a replicate matrix
+M <- ruv::replicate.matrix(bio_int)
+
+#M <- cbind(M[,1], M[,2], M[,3], !(M[,1] | M[,2] | M[,3]))
+#M <- cbind(W, !W)
+
+
+# PARAMETER
+# What fraction (0,1) of the simulated samples should we make random
+
+rand_frac <- 0
+peturb_ind <- sample(1:nrow(M), rand_frac * nrow(M))
+for(i in peturb_ind){
+  M[i, ] <- sample(0:1, ncol(M), replace = TRUE)
+}
+
+# Standardise the cell data
+# Could refactor RUVIII wrappers to make this easier
+raw_Y <- as.matrix(Y)
+
+col_means <- colMeans(raw_Y)
+col_sds <- apply(raw_Y, 2, function(x) sd(x))
+
+for(i in 1:ncol(raw_Y)){
+  raw_Y[,i] <- (raw_Y[,i] - col_means[i])/col_sds[i]
+}
+
+# PARAMETER
+# What negative controls are we using
+
+# The negative contols will taken to be all the markers
+# except for `exclude_neg_controls_indices` 
+exclude_neg_controls <- c(1,3,5)
+controls <- c(1:nmarkers)[-exclude_neg_controls]
+
+RUVIIout <- fastRUVIII(Y = Y, M, ctl = controls, k = 1)
+norm_Y <- RUVIIout$newY
+alpha <- RUVIIout$fullalpha
+
+for(i in 1:ncol(norm_Y)){
+  norm_Y[,i] <- norm_Y[,i]*col_sds[i] + col_means[i]
+}
+```
+
+```{r}
+norm_plot_data <- tibble(x = norm_Y[samp,3], 
+                         y = norm_Y[samp,1],
+                         sample = factor(as.vector(X[samp, ])),
+                         batch = factor(as.vector(W[samp, ])),
+                         bio = int[samp])
+
+# PARAMETER 
+# Use t-SNE for dimension reduction
+TSNE <- TRUE
+if(TSNE){
+  # Code to correct bug in the cytofkit package.
+  # A passed matrix must be named...
+  tsne_data <- norm_Y[samp, bio_param_locs]
+  colnames(tsne_data) <- as.character(1:ncol(tsne_data))
+  # Run t-SNE
+  tsne <- cytofkit::cytof_dimReduction(tsne_data, method = "tsne")
+  norm_plot_data$x <- tsne[,1]
+  norm_plot_data$y <- tsne[,2]
+}
+
+sample_plot <- ggplot(norm_plot_data, aes(x, y, col = sample)) + 
+                      geom_point() + 
+                      theme_bw() + 
+                      labs(x = "", y = "", col = "Sample") + 
+                      scale_colour_manual(values=c("steelblue", "green4"))
+
+bio_plot <- ggplot(norm_plot_data, aes(x, y, col = bio)) + 
+                    geom_point() + 
+                    theme_bw() + 
+                    labs(x = "", y = "", col = "Biology")
+
+batch_plot <- ggplot(norm_plot_data, aes(x, y, col = batch)) + 
+                     geom_point() + 
+                     theme_bw() + 
+                     labs(x = "", y = "", col = "Batch") + 
+                     scale_colour_manual(values=c("red3", "royalblue3"))
+
+sample_plot
+bio_plot
+batch_plot
+```
+
+```{r}
+boxplot_data <- data.frame(norm_Y, 
+                           sample = factor(as.vector(X)),
+                           batch = factor(as.vector(W)),
+                           bio = int)
+
+boxplot_data <- gather(boxplot_data, key = "marker", value = "intensity",
+                       X1:X20, -sample, -batch, -bio)
+
+
+sample_boxplot <- ggplot(boxplot_data, aes(marker, intensity, fill = sample)) + 
+                      geom_boxplot() + 
+                      theme_bw() + 
+                      labs(x = "", y = "", col = "Sample") + 
+                      scale_fill_manual(values=c("steelblue", "green4"))
+
+bio_boxplot <- ggplot(boxplot_data, aes(marker, intensity, fill = bio)) + 
+                  geom_boxplot() + 
+                  theme_bw() + 
+                  labs(x = "", y = "", col = "Biology") + 
+                  facet_wrap(~bio)
+
+batch_boxplot <- ggplot(boxplot_data, aes(marker, intensity, fill = batch)) + 
+                   geom_boxplot() + 
+                   theme_bw() + 
+                   labs(x = "", y = "", col = "Batch") + 
+                   scale_fill_manual(values=c("red3", "royalblue3"))
+
+sample_boxplot
+bio_boxplot
+batch_boxplot
+```

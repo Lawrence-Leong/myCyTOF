@@ -26,14 +26,26 @@ raw_files <- c("raw_data.rds")
 other_files <- c("norm_data.rds")
 
 # All of these files must be located in the /Data directory in the /myCyTOF folder.
+# They must be in the following format:
+# Column called: sample - which has the sample ids of each cell in the format used below
+# Column called: cluster - numeric value indicating which cluster the cell was assigned to
+# The rest of the columns are the CyTOF markers from the original data
+# This data must then be saved as .rds files using the saveRDS() function.
+# An example of putting CyTOF data into this format and saving it can be found in preprocessing.R.
+# I would recommend that you do the neccesary data processing and saving in that file.
 
 # Character vector of data labels or titles
 # Should be of the form:
 #c(labels for raw data, labels for normalised data, labels for raw data after normalisation)
 titles <- c("Raw", "Finck", "RUVIII")
 
-# NOTE: all inputs must be of the same length!
-# Spcify all combinations
+#######################################################################################################
+
+# Normalisation parameters
+# These parameters allow you to specify what normalisation parameters the script should use for subsequent
+# running's of the script
+# NOTE: all inputs must be of the same length! All desired combinations must be specified.
+
 # Vector of k values to use
 k_values <- c(1)
 
@@ -49,6 +61,7 @@ if (!(length(k_values) == length(sample_list) & (length(k_values) == length(clus
 
 n <- length(k_values) # Length of all inputs
 
+# Here we knit the succesive scripts
 for (i in 1:n){
   k_value <- k_values[i]
   sample <- sample_list[[i]]
@@ -57,11 +70,13 @@ for (i in 1:n){
   file_name <- paste0("report","_", "k=", k_value, "_samps=", paste(sample, collapse = "_"),
                       "_clus=", paste(clusters, collapse = "_"), ".html")
 
+  # This will print the parameters we are using to the console.
   cat("Knitting with: \n")
   cat(paste0("k value: ", k_value), "\n")
   cat(paste0("samples: ", paste(sample, collapse = " ")), "\n")
   cat(paste0("clusters: ", paste(clusters, collapse = "-")), "\n")
 
+  # Actually render the file putting it in the reports directory
   rmarkdown::render(input = here::here("Scripts", "RUVIII_data_report.Rmd"),
     params = list(
       k = k_value,

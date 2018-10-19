@@ -2,7 +2,7 @@
 
 # Take in data subsamples and converts it into annotated tsne form
 compute_tsne <- function(data, N = 1000, sample = NULL){
-  if (is.null(samp)){
+  if (is.null(sample)){
     # Sample internally
     samp <- sample(1:nrow(data), N)
     samp_data <- data[samp, ]

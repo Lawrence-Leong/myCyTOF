@@ -8,6 +8,9 @@ output:
     toc_float: true
     toc_depth: 2
 params: 
+  raw_files: c("raw_data.rds")
+  other_files: c("norm_data.rds")
+  titles: c("Raw", "Finck", "RUVIII")
   k: 3
   norm_clusters: 1
   samples: 1
@@ -44,22 +47,25 @@ add_titles <- function(plots, titles){
 
 ```{r, "Constants"}
 set.seed(42)
-titles <- c("Raw", "Finck", "RUVIII")
+titles <- params$titles
 ```
 
 ```{r, "Load Data", warning= FALSE, message=FALSE}
-setwd("/home/users/allstaff/pullin.j/myCyTOF/Data")
-# NB: the first file must be the raw one
-files <- c("raw_data.rds", "norm_data.rds")
-data_list <- map(files, ~readRDS(.))
+# Get the full file names
+raw_files <- paste0(here::here("Data", "/"), params$raw_files)
+print(raw_files)
+other_files <-  paste0(here::here("Data", "/"), params$other_files)
+n_raw_files <- length(raw_files)
 
-n_raw_files <- 1
+# Read in the files
+files <- c(raw_files, other_files)
+data_list <- map(files, ~readRDS(.))
 n_data <- length(data_list)
 ```
 
 ```{r, "Downsampling"}
 samples <- params$samples
-n_clust <- max(data_list[[1]]$cluster) # Get the clusing 
+n_clust <- max(data_list[[1]]$cluster) # Get the clustering 
 
 data_list[[1]] <- data_list[[1]] %>%
   filter(sample %in% samples) %>% 
@@ -96,7 +102,7 @@ n_data <- length(data_list)
 
 ```{r, "Perform tSNE"}
 # Perform tSNE on the data
-tsne_list <- map(data_list, function(x) compute_tsne(x, 5000))
+tsne_list <- map(data_list, function(x) compute_tsne(x, N = 5000))
 ```
 
 # PCA

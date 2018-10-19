@@ -218,7 +218,7 @@ bio_factors[[length(bio_param_locs) + 1]] <- factor(X[,1])
 bio_samp_int <- interaction(bio_factors)
 
 # Use the ruv package to convert the factor to a replicate matrix
-M <- ruv::replicate.matrix(bio_samp_int)
+M <- ruv::replicate.matrix(bio_int)
 
 #M <- cbind(M[,1], M[,2], M[,3], !(M[,1] | M[,2] | M[,3]))
 #M <- cbind(W, !W)

@@ -13,10 +13,10 @@ Rscript generate_data_reports.R
 ```
 This will generate reports **in the** `\Reports` **directory**. 
 
-The quasi-package also supports the running of RUVIII on simulated data. This is implemented in the file *RUVIII_sim_report.Rmd*. The file itlsef contains documentation about all the different parameters options in the simulation - which are highlighted with a `#PARAMTER` tag. This file does **not** have an asscoiated generate reports style file as there are two many parameters and not all may be interest. If such a script is required please open an issue on the GitHub page. The file does however have the associated script *generate_sim_report* which is simply a convinceve wrapper around the knit command to enusre the reports is generated in the `\Reports` directory. If this script is used it shoud be run from the command line:
+The quasi-package also supports the running of RUVIII on simulated data. This is implemented in the file *RUVIII_sim_report.Rmd*. The file itlsef contains documentation about all the different parameters options in the simulation - which are highlighted with a `#PARAMTER` tag. This file does **not** have an asscoiated generate reports style file as there are two many parameters and not all may be interest. If such a script is required please open an issue on the GitHub page. The file does however have the associated script *generate_sim_report.R* which is simply a convinceve wrapper around the knit command to enusre the reports is generated in the `\Reports` directory. If this script is used it shoud be run from the command line:
 
 ```bash
-Rscript 1
+Rscript generate_sim_report.R
 ```
 ## Technical note
 

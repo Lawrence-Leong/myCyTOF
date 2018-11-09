@@ -11,7 +11,7 @@
 # To simplify development I have removed any error checking or support for case
 # that we were not interested in testing.
 # N.B: empirical testing shows that for mass cytof data eta = NULL i.e. no use
-# of the RUVI function should be used.
+# of the RUVI function should be made.
 # Otherwise inputs/return value etc. is the same as ruv::RUVIII
 
 fastRUVIII = function(Y, M, ctl, k=NULL, eta=NULL, average=FALSE, fullalpha=NULL){
@@ -19,13 +19,21 @@ fastRUVIII = function(Y, M, ctl, k=NULL, eta=NULL, average=FALSE, fullalpha=NULL
   if (!(k > 0)) stop("Bad input - read the docs")
 
   Y = ruv::RUV1(Y,eta,ctl)
-  m = nrow(Y)
-  Y0 = ruv::residop(Y, M)
-  fullalpha = diag(rsvd::rsvd(Y0)$d) %*% t(rsvd::rsvd(Y0)$v)
+  m <- nrow(Y)
+
+  Y0 = fast_residop(Y, M)
+
+  svd_out <- rsvd::rsvd(Y0)
+  fullalpha = diag(svd_out$d) %*% t(svd_out$v)
+
   alpha = fullalpha[1:k,,drop=FALSE]
+
   ac = alpha[,ctl,drop=FALSE]
+
   W = Y[,ctl] %*% t(ac) %*% solve(ac %*% t(ac))
+
   newY = Y - W %*% alpha
+
   return(list(newY = newY, fullalpha=fullalpha))
 }
 

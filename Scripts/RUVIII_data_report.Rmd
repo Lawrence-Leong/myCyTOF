@@ -8,10 +8,10 @@ output:
     toc_float: true
     toc_depth: 2
 params: 
-  raw_files: c("raw_data.rds")
-  other_files: c("norm_data.rds")
+  raw_files: "raw_data.rds"
+  other_files: "norm_data.rds"
   titles: c("Raw", "Finck", "RUVIII")
-  k: 3
+  k: 1
   norm_clusters: 1
   samples: 1
 ---
@@ -43,6 +43,14 @@ library("RColorBrewer")
 add_titles <- function(plots, titles){
   map2(plots, titles, function(x, y) x + labs(titles = y))
 }
+# NB: These could well break if ggplot2 is updated
+get_x_scale <- function(plot){
+  ggplot_build(plot)$layout$panel_params[[1]]$x.range
+}
+
+set_x_scale <- function(plot, x_limits){
+  plot + coord_cartesian(xlim = x_limits)
+}
 ```
 
 ```{r, "Constants"}
@@ -53,7 +61,6 @@ titles <- params$titles
 ```{r, "Load Data", warning= FALSE, message=FALSE}
 # Get the full file names
 raw_files <- paste0(here::here("Data", "/"), params$raw_files)
-print(raw_files)
 other_files <-  paste0(here::here("Data", "/"), params$other_files)
 n_raw_files <- length(raw_files)
 
@@ -65,39 +72,26 @@ n_data <- length(data_list)
 
 ```{r, "Downsampling"}
 samples <- params$samples
-n_clust <- max(data_list[[1]]$cluster) # Get the clustering 
-
-data_list[[1]] <- data_list[[1]] %>%
-  filter(sample %in% samples) %>% 
-  mutate(ind = 1:nrow(.)) %>% 
-  group_by(sample) %>% 
-  sample_n(10000) %>% 
-  ungroup() %>% 
-  as.data.frame()
-
-index <- as.vector(as.matrix(select(data_list[[1]], ind)))
-data_list[[1]] <- select(data_list[[1]], -ind)
-
-if(n_raw_files != n_data){
-  # Downsample other files
-  for(i in (n_raw_files+1):n_data){
-    data_list[[i]] <- data_list[[i]] %>%
-      filter(sample %in% samples) %>% 
-      slice(index) %>% 
-      as.data.frame()
-  }
+# Change to sensible input for debugging purposes
+# This is caused by my inability to pass vectors by default
+if (samples == 1){
+  samples <- c("1B1", "2B1", "3B1", "4B1", "5B1", "6B1")
 }
+
+data_list <- purrr::map(data_list, ~ filter(., sample %in% samples))
 ```
 
 ```{r, "RUV Processing"}
-norm_clus<- params$norm_clusters
+samples <- params$samples
+n_clust <- max(data_list[[1]]$cluster) # Get the clustering 
+norm_clus <- params$norm_clusters
 k <- params$k
 
-norm_data <- normalise_data(data_list[[1]], norm_clus, k, num_clusters = n_clust)
-
-data_list[[length(data_list) + 1]] <- norm_data
-
-n_data <- length(data_list)
+for(i in 1:n_raw_files){
+  norm_data <- normalise_data(data_list[[i]], norm_clus, k, num_clusters = n_clust)
+  data_list[[length(data_list) + 1]] <- norm_data
+  n_data <- length(data_list)
+}
 ```
 
 ```{r, "Perform tSNE"}
@@ -127,8 +121,13 @@ ggarrange(plotlist = plot_tsne_samp, ncol = 2, nrow = 2, common.legend = TRUE, l
 
 ```{r, "tSNE F statistics", warning=FALSE}
 plot_Ftsne <- map(tsne_list, tsne_F_stats)
+# Ensure the scales of the plots are the same 
+# NB: assumes the first plot will have the largest range
+raw_scale <- get_x_scale(plot_Ftsne[[1]][[1]])
+for(i in 1:n_data){
+  plot_Ftsne[[i]][[1]] <- set_x_scale(plot_Ftsne[[i]][[1]], raw_scale)
+}
 plot_Ftsne <- flatten(plot_Ftsne)
-# Note that the axes on the plots are not the same
 ggarrange(plotlist = plot_Ftsne, ncol = 2, nrow = 3)
 ```
 
@@ -144,6 +143,12 @@ ggarrange(plotlist = plot_tsne_clus, ncol = 2, nrow = 2)
 
 ```{r, "Plot Cluster Frequency", warning = FALSE, message=FALSE}
 clus_freq_plot <- map(data_list, plot_cluster_freq)
+# Ensure the scales of the plots are the same 
+# NB: assumes the first plot will have the largest range
+raw_scale <- get_x_scale(clus_freq_plot[[1]][[2]])
+for(i in 1:n_data){
+  clus_freq_plot[[i]][[2]] <- set_x_scale(clus_freq_plot[[i]][[2]], raw_scale)
+}
 clus_freq_plot <- flatten(clus_freq_plot)
 ggarrange(plotlist = clus_freq_plot, ncol = 2, nrow = 3)
 ```

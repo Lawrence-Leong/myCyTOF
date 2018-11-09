@@ -7,7 +7,7 @@ plot_cluster_freq <- function(data){
 
   NUM_CLUSTERS <- max(data$cluster)
   NUM_SAMPLES <- length(unique(data$sample))
-  
+
   # Produce a marker matrix
   cell_amounts <- table(data$cluster)
   cell_freqs <- round(cell_amounts/sum(cell_amounts) * 100, 2)
@@ -29,8 +29,8 @@ plot_cluster_freq <- function(data){
     geom_tile(aes(fill = freq)) +
     theme_bw() +
     labs(x = "Centre",
-      y = "Cluster",
-      fill = "Percentage of \ncells in cluster") +
+         y = "Cluster",
+         fill = "Percentage of \ncells in cluster") +
     scale_fill_gradientn(colours =
         (colorRampPalette(rev(brewer.pal(n = 11, name = "RdYlBu")))(50))) +
     theme(panel.grid.major = element_blank(),
@@ -46,15 +46,15 @@ plot_cluster_freq <- function(data){
 plot_stat_hist <- function(matrix){
 
   stats <- compute_stats(matrix)
-  
-  plot <- ggplot(as.tibble(stats), aes(value)) + 
+
+  plot <- ggplot(as.tibble(stats), aes(value)) +
     geom_histogram(colour = "black", fill = "skyblue") +
     geom_vline(xintercept = median(as.vector(stats), na.rm = TRUE), col = "red") +
-    labs(y = "Count", x = "Stats") + 
+    labs(y = "Count", x = "Stats") +
     annotate(geom="text", x=Inf, y=Inf, label=as.character(median(as.vector(stats), na.rm = TRUE)),
-             vjust = 2, hjust = 2) + 
+             vjust = 2, hjust = 2) +
     theme_bw()
-    
+
   plot
 }
 
@@ -77,9 +77,13 @@ cluster_count_matrix <- function(data){
   num_clusters <- as.numeric(max(data$cluster))
   num_samples <- length(unique(data$sample))
 
-  samp_ind <- rep(1:num_samples, each = 10000)
-  mat <- matrix(0, nrow = num_clusters, ncol = num_samples)
+  # Create a mapping vector and map the levels of the factor to a numeric vector
+  samp_map <- 1:6
+  names(samp_map) <- unique(data$sample)
 
+  samp_ind <- samp_map[as.character(data$sample)]
+
+  mat <- matrix(0, nrow = num_clusters, ncol = num_samples)
   for(i in 1:nrow(data)) {
     mat[data$cluster[i], samp_ind[i]] <- mat[data$cluster[i], samp_ind[i]] + 1
   }

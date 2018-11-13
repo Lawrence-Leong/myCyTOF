@@ -61,11 +61,16 @@ titles <- params$titles
 ```{r, "Load Data", warning= FALSE, message=FALSE}
 # Get the full file names
 raw_files <- paste0(here::here("Data", "/"), params$raw_files)
-other_files <-  paste0(here::here("Data", "/"), params$other_files)
-n_raw_files <- length(raw_files)
+
+if (!is.null(other_files)){
+  other_files <- paste0(here::here("Data", "/"), params$other_files)
+  files <- c(raw_files, other_files)
+} else {
+  files <- raw_files
+}
 
 # Read in the files
-files <- c(raw_files, other_files)
+n_raw_files <- length(raw_files)
 data_list <- map(files, ~readRDS(.))
 n_data <- length(data_list)
 ```
@@ -172,7 +177,10 @@ ggarrange(plotlist = marker_densities, ncol = 2, nrow = 2, common.legend = TRUE,
 # Cluster Matching
 
 ```{r, fig.width=8, fig.height=6}
-clust_match_plot <- plot_cluster_match(data_list[[1]], data_list[[3]])
-clust_match_plot <- clust_match_plot + labs(x = titles[[1]], y = titles[[3]])
-clust_match_plot
+if (!is.null(other_files)){
+  # The indexing should be changed
+  clust_match_plot <- plot_cluster_match(data_list[[1]], data_list[[2]])
+  clust_match_plot <- clust_match_plot + labs(x = titles[[1]], y = titles[[3]])
+  clust_match_plot
+}
 ```

@@ -50,10 +50,10 @@ titles <- c("Raw", "Finck", "RUVIII")
 k_values <- c(1)
 
 # List of vectors each containing 3 letters sample ids (i.e. "1A2") as strings
-sample_list <- list(c("1B1", "2B1", "3B1", "4B1", "5B1", "6B1"))
+sample_list <- list(c("3B1", "3B2", "4B1", "4B2", "5B1", "5B2"))
 
 # List of numeric vectors representing the clusters to use during the normalisation
-cluster_list <- list(c(1))
+cluster_list <- list(c(15))
 
 # Check 'input' for user stupidity
 if (!(length(k_values) == length(sample_list) & (length(k_values) == length(cluster_list))))

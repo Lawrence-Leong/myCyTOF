@@ -24,7 +24,8 @@ run_RUVIII <- function(data, norm_clusters, k){
 
 # Wrapper to allow the conversion of an annotated data object to it's normalised
 # version. Normalises cells and reclusters the data.
-normalise_data <- function(data, norm_clusters, k, num_clusters = 40, seed = 42){
+normalise_data <- function(data, norm_clusters, k, num_clusters, seed = 42){
+  num_clusters <- as.numeric(max(data$cluster))
   # Normalise the cells
   norm_cells <- run_RUVIII(data, norm_clusters, k)
   # Recluster the data

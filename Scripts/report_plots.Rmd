@@ -1,0 +1,148 @@
+---
+title: "Report Plots"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Code to generate the plots found in my report. 
+
+```{r}
+two_col <- c("forestgreen", "steelblue")
+six_col <- c("forestgreen", "steelblue", "goldenrod1", "tomato1", "darkturquoise", "mediumorchid1")
+raw_data <- as.tibble(readRDS(here::here("Data", "raw_data.rds")))
+```
+
+```{r}
+sample_sum <- raw_data %>% 
+  group_by(sample) %>% 
+  select(-cluster) %>% 
+  summarise_all(mean) %>% 
+  ungroup()
+
+MDS_points <- sample_sum %>% 
+  select(-sample) %>% 
+  as.matrix() %>% 
+  dist() %>% 
+  cmdscale(k = 2) %>% 
+  set_colnames(c("MDS1", "MDS2"))
+  
+MDS_plot_data <- data.frame(sample = sample_sum$sample, MDS_points)
+```
+
+```{r}
+MDS_plot_data %>% 
+  mutate(sample = as.character(sample)) %>% 
+  mutate(is_1A2 = sample == "1A2") %>% 
+  ggplot(aes(MDS1, MDS2, colour = is_1A2)) + 
+    geom_point(size = 4) + 
+    geom_text(aes(label = ifelse(is_1A2 == 1, sample, "")),
+              hjust = 1, vjust = -1) + 
+    guides(colour = FALSE) + 
+    scale_colour_manual(values = two_col) + 
+    theme_bw()
+```
+
+```{r}
+MDS_plot_data %>% 
+  mutate(sample = as.character(sample)) %>% 
+  mutate(is_P = stringr::str_sub(sample, 2, 2) == "P") %>% 
+  ggplot(aes(MDS1, MDS2, col = is_P)) + 
+    geom_point(size = 4) + 
+    scale_colour_manual(values = two_col) + 
+    labs(col = "is a P sample") + 
+    theme_bw()
+```
+
+```{r}
+MDS_plot_data %>% 
+  mutate(sample = as.character(sample)) %>% 
+  mutate(is_P = stringr::str_sub(sample, 2, 2) == "P") %>% 
+  filter(!is_P) %>% 
+  mutate(centre = stringr::str_sub(sample, 1, 1)) %>% 
+  ggplot(aes(MDS1, MDS2, col = centre)) + 
+    geom_point(size = 4) + 
+    scale_colour_manual(values = six_col) + 
+    labs(col = "Centre", 
+         subtitle = "Excluding P centres") + 
+    theme_bw()
+```
+
+```{r}
+raw_data %>% 
+  mutate_at(vars(-cluster, -sample), ~ . - mean(.)) %>% 
+  select(-cluster) %>% 
+  gather(key = "marker", value = "intensity", CD27:HLADR) %>% 
+  sample_n(10000) %>% 
+  mutate(centre = stringr::str_sub(sample, 1, 1)) %>% 
+  ggplot(aes(x = sample, y = intensity, fill = centre)) + 
+    geom_boxplot() + 
+    scale_fill_manual(values = six_col) + 
+    labs(x = "Sample", 
+         y = "Intensity", 
+         fill = "Centre") + 
+    theme_bw() + 
+    theme(axis.text.x = element_text(angle = 90, hjust = 0))
+```
+
+
+```{r}
+raw_data %>% 
+  filter(stringr::str_sub(as.character(sample),2, 3) == "B1") %>% 
+  gather(key = "marker", value = "intensity", CD27:HLADR) %>% 
+  sample_n(100000) %>% 
+  ggplot(aes(x = intensity, col = sample)) + 
+    facet_wrap(~marker) + 
+    scale_colour_manual(values = six_col) + 
+    geom_density() + 
+    scale_y_continuous(limits = c(0, 0.8)) + 
+    labs(x = "Intensity", 
+         y = "Density", 
+         subtitle = "B1 Samples", 
+         colour = "Centre") + 
+    theme_bw()
+```
+
+```{r}
+raw_data %>% 
+  mutate(centre = as.factor(stringr::str_sub(as.character(sample), 1, 1))) %>% 
+  filter(centre == 1) %>% 
+  mutate(type = as.factor(stringr::str_sub(as.character(sample), 2, 2))) %>% 
+  gather(key = "marker", value = "intensity", CD27:HLADR) %>%
+  sample_n(100000) %>% 
+  ggplot(aes(x = intensity, col = type)) + 
+    geom_density() + 
+    facet_wrap(~marker, scales = "free") + 
+    scale_y_continuous(limits = c(0, 0.8)) + 
+    labs(x = "Intensity", 
+         y = "Density", 
+         colour = " Type\n of sample") + 
+    theme_bw()
+```
+
+# Add heatmaps
+
+```{r}
+raw_data %>% 
+  mutate(cluster = as.factor(cluster)) %>% 
+  mutate(sum = rowSums(select(., CD27:HLADR))) %>% 
+  select(sample, cluster, sum) %>% 
+  group_by(sample, cluster) %>% 
+  summarise_at(vars(-sample, -cluster), median) %>% 
+  filter(sample %in% c("1B2", "2B2", "3B2", "4B2", "5B2", "6B2")) %>% 
+  ggplot(aes(x = sample, y = cluster, fill = sum)) + 
+    geom_tile() + 
+    viridis::scale_fill_viridis(option="magma") + 
+    labs(fill = " Median marker\n expression\n in cluster") + 
+    theme_bw() + 
+    labs(x = "Sample",
+         y = "Cluster ID")
+```
+
+
+
+
+
+

@@ -71,6 +71,18 @@ MDS_plot_data %>%
 ```
 
 ```{r}
+devtools::load_all()
+tsne_data <- compute_tsne(raw_data, N = 2000)
+tsne_data <- as_tibble(tsne_data)
+tsne_data %>% 
+  ggplot(aes(x = tSNE1, y = tSNE2, col = sample)) + 
+    geom_point() + 
+    labs(col = "Sample") + 
+    theme_bw()
+```
+
+
+```{r}
 raw_data %>% 
   mutate_at(vars(-cluster, -sample), ~ . - mean(.)) %>% 
   select(-cluster) %>% 
@@ -142,6 +154,21 @@ raw_data %>%
 ```
 
 
+```{r}
+raw_data %>% 
+  gather(key = "marker", value = "intensity", CD27:HLADR) %>% 
+  select(-cluster) %>% 
+  group_by(sample, marker) %>% 
+  summarise(intensity = median(intensity)) %>% 
+  ggplot(aes(x = sample, y = marker, fill = intensity)) + 
+    geom_tile() + 
+    viridis::scale_fill_viridis() + 
+    labs(fill = " Median marker\n expression\n for each marker in\n each sample") + 
+    theme_bw() + 
+    labs(x = "Sample",
+         y = "Marker") + 
+    theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
 
 
 
